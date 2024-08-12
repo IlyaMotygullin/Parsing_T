@@ -11,6 +11,8 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class Main {
     private static final Scanner SCANNER_USER = new Scanner(System.in);
@@ -32,17 +34,34 @@ public class Main {
         return references;
     }
 
-    private static void getPageBrowser(String keyWord) throws URISyntaxException, IOException {
-        if (Desktop.isDesktopSupported()) {
-            Desktop.getDesktop().browse(new URI(getRefList(getUrl(keyWord)).get(0)));
-        }
+    private static void getPageBrowser(String keyWord) throws IOException {
+        /** так как getRefList() возвращает список ссылок на главной странице поиска то длинна этого
+         * списка и будет количеством потоков, которое я создам*/
+        List<String> refList = getRefList(getUrl(keyWord));
+
+        /** создание потоков для анализа всех ссылок */
+        /** создание пула потоков*/
+        ExecutorService analiseReferences = Executors.newFixedThreadPool(refList.size());
+        analiseReferences.submit(() -> {
+            for (int i = 0; i < refList.size(); i++) {
+                if (Desktop.isDesktopSupported()) {
+                    try {
+                        Desktop.getDesktop().browse(new URI(refList.get(i)));
+                    } catch (IOException | URISyntaxException e) {
+                        throw new RuntimeException(e);
+                    }
+                }
+            }
+        });
+
+        analiseReferences.shutdown();
     }
 
     public static void main(String[] args) {
         String findUrl = keyWordUsers();
         try {
             getPageBrowser(findUrl);
-        } catch (URISyntaxException | IOException exception) {
+        } catch (IOException exception) {
             exception.addSuppressed(new Exception());
         } finally {
             SCANNER_USER.close();
