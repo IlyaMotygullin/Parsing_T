@@ -1,6 +1,7 @@
 package org.example;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
+import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 
 import java.awt.*;
@@ -40,11 +41,13 @@ public class Main {
 
         /*c помощью Stream Api пробегаюсь по списку Elements и добавляю их в свой лист: references*/
         elements.forEach(element -> references.add(element.attr("href")));
+
+
         return references;
     }
 
     /** метод благодаря которому открываются вкладки в браузере */
-    private static void getPageBrowser(String keyWord) throws IOException {
+    private static void getPageBrowser(String keyWord) throws IOException, URISyntaxException {
 //        getRefList(getUrl(keyWord)).forEach(System.out::println); // для наглядности списка в котором хранятся ссылки
 
         /** так как getRefList() возвращает список ссылок на главной странице поиска то длинна этого
@@ -53,21 +56,46 @@ public class Main {
 
         /** создание потоков для анализа всех ссылок */
         /** создание пула потоков*/
-        ExecutorService analiseReferences = Executors.newFixedThreadPool(refList.size());
-        analiseReferences.submit(() -> {
-            for (int i = 0; i < refList.size(); i++) {
-                if (Desktop.isDesktopSupported()) {
-                    try {
-                        /* с помощью Desktop получаю доступ к браузеру, который запускается по дефолту */
-                        Desktop.getDesktop().browse(new URI(refList.get(i)));
-                    } catch (IOException | URISyntaxException e) {
-                        throw new RuntimeException(e);
-                    }
-                }
-            }
-        });
+//        ExecutorService analiseReferences = Executors.newFixedThreadPool(refList.size());
+//        analiseReferences.submit(new CheckWebSait(refList));
+//        analiseReferences.shutdown();
 
-        analiseReferences.shutdown();
+
+//        System.out.println(refList.get(0));
+
+        /** получение всех элементов html страницы METSO.COM */
+        Document document = Jsoup.connect(refList.get(0)).get();
+
+        /** получение элементов <li> (у этих элементов есть атрибут "role" и значение этого атрибута "option")</>*/
+        Elements elements = document.getElementsByAttributeValue("role", "option");
+
+        /** вывод всех элементов <li> </>*/
+        elements.forEach(System.out::println);
+        //        /ru/metals-refining/
+
+
+        /** получение ссылок с атрибутом "data-nav-main-cat" и значением "1 Metals refining (hub card)", которые пренадлежат элемету <li></>*/
+        Elements elRef = document.getElementsByAttributeValue("data-nav-main-cat", "1 Metals refining (hub card)");
+        List<String> strings = new ArrayList<>();
+
+        /** добавление всех ссылок в лист */
+        elRef.forEach(element -> strings.add(element.attr("href")));
+
+        /** вывод всех неправильных ссылок */
+        strings.forEach(System.out::println);
+
+        /** лист в котором будут хранится корректные ссылки */
+        List<String> correctReferencesList = new ArrayList<>();
+
+        for (int i = 0; i < strings.size(); i++) {
+
+            /** преобразование всех ссылок в корректный вид и добавление их в список для корректных ссылок */
+            String correctReferences = "https://www.metso.com".concat(strings.get(i));
+            correctReferencesList.add(correctReferences);
+        }
+
+        /** отображение всех корректных ссылок */
+        correctReferencesList.forEach(System.out::println);
     }
 
     public static void main(String[] args) {
@@ -76,6 +104,8 @@ public class Main {
             getPageBrowser(findUrl);
         } catch (IOException exception) {
             exception.addSuppressed(new Exception());
+        } catch (URISyntaxException e) {
+            throw new RuntimeException(e);
         } finally {
             SCANNER_USER.close();
         }
